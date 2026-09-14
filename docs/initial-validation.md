@@ -6,7 +6,7 @@
 
 - 补充 Node.js 版本约定、依赖锁文件和统一构建 / 检查命令。
 - 补充 Git 忽略规则、README 开发说明和 GitHub Actions 检查工作流。
-- 目录尚未初始化 Git，没有分支、提交或远端；尚未创建 GitHub 仓库。
+- 已初始化 Git，默认分支为 `master`；public GitHub 仓库为 <https://github.com/hellowmq/pet-apps>。
 
 ## 验证结果
 
@@ -16,7 +16,7 @@
 - 系统默认 Node 仍缺少 ICU 动态库；本次使用项目外的 Node.js 24.19.0 临时运行时（`/tmp/pet-apps-node24`），未修改系统 Node 配置。
 - `npm ci` 的 Electron postinstall 下载长时间无输出后主动中止；随后使用同一锁文件执行 `npm ci --ignore-scripts --no-audit --no-fund`，并补齐 Electron 35.7.5 的 macOS arm64 本体。`node_modules/` 属于本地安装产物，不入库。
 - `node_modules/.bin/electron --version` 返回 `v35.7.5`，`npm run desktop` 可正常构建并启动桌面窗口。
-- GitHub Actions 配置尚未在 GitHub 执行。
+- GitHub Actions `Check` 已在 GitHub 执行并通过：[run 34837519631](https://github.com/hellowmq/pet-apps/actions/runs/34837519631)。
 
 ## 桌面复现结果（2026-09-14）
 
@@ -35,6 +35,6 @@
 ## 下一步顺序
 
 1. 在第二块显示器可用时补测托盘菜单和多屏幕边界行为。
-2. 按 public、`master` 和现有项目名方案准备 GitHub 仓库，不需要重新命名项目。
-3. 获得建仓授权后初始化 Git、提交 initial 版本、创建 GitHub 仓库并推送，核验远端文件和 Actions 运行结果。
+2. public、`master` 和现有项目名方案已完成，不需要重新命名项目。
+3. 已完成 Git 初始化、initial 提交、GitHub 创建与推送；远端提交为 `dd2da82`，Actions 已通过。
 4. 桌面源码运行验收通过后，再准备 macOS 应用打包；签名与发布作为后续阶段。
