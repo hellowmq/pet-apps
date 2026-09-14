@@ -1,0 +1,23 @@
+{
+  "name": "@pet-apps/core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./ui.css": "./src/ui.css"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "three": "^0.178.0",
+    "gsap": "^3.12.5"
+  },
+  "devDependencies": {
+    "gsap": "^3.12.5",
+    "three": "^0.178.0",
+    "vitest": "^3.0.0"
+  }
+}

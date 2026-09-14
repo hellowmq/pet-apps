@@ -1,0 +1,24 @@
+{
+  "name": "pet-apps",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "build:desktop": "npm run build -w @pet-apps/desktop",
+    "check": "npm test && npm run build",
+    "desktop": "npm run desktop -w @pet-apps/desktop",
+    "dev:tuanzi": "npm run dev -w @pet-apps/tuanzi",
+    "dev:maodie": "npm run dev -w @pet-apps/maodie",
+    "build:tuanzi": "npm run build -w @pet-apps/tuanzi",
+    "build:maodie": "npm run build -w @pet-apps/maodie",
+    "test": "npm run test -w @pet-apps/core"
+  }
+}
