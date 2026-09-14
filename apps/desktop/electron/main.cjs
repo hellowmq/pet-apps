@@ -21,6 +21,11 @@ let petId = 'tuanzi';
 /** @type {{ x: number, y: number } | null} */
 let dragOffset = null;
 
+const PET_META = {
+  tuanzi: { emoji: '🍡', name: '团子' },
+  maodie: { emoji: '🐱', name: '圆头耄耋' },
+};
+
 /** Overlay size per pet — maodie needs a wider stage to roam. */
 const PET_SIZE = {
   tuanzi: { width: 180, height: 220 },
@@ -33,13 +38,20 @@ function petSize(id = petId) {
   return PET_SIZE[id] || PET_SIZE.tuanzi;
 }
 
-function trayIcon() {
-  const iconPath = path.join(__dirname, 'tray.png');
-  let img = nativeImage.createFromPath(iconPath);
+function petMeta(id = petId) {
+  return PET_META[id] || PET_META.tuanzi;
+}
+
+function petLabel(id) {
+  const meta = petMeta(id);
+  return `${meta.emoji} ${meta.name}`;
+}
+
+function trayIcon(id = petId) {
+  let img = nativeImage.createFromPath(path.join(__dirname, `${id}-tray.png`));
   if (img.isEmpty()) {
-    img = nativeImage.createFromDataURL(
-      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAbElEQVRYR+2WMQ4AIAgD7f8/TQ0xGIcR2oKTdGjg0gKAiIh/nYw5Z+99Y8xIKc3M3HtPROydA9YKjDF3ztlaWyLinEpZa60xRmuNtfZJCc65lFLnnFprY8xJCddaxphzLs65/5QAZ+1JCfdS4P8K/ABb0hAhIWqG6wAAAABJRU5ErkJggg==',
-    );
+    const iconPath = path.join(__dirname, 'tray.png');
+    img = nativeImage.createFromPath(iconPath);
   }
   return img.resize({ width: 18, height: 18 });
 }
@@ -166,11 +178,11 @@ function ensureWindow() {
 function buildTrayMenu() {
   return Menu.buildFromTemplate([
     {
-      label: petId === 'tuanzi' ? '✓ 团子' : '团子',
+      label: petId === 'tuanzi' ? `✓ ${petLabel('tuanzi')}` : petLabel('tuanzi'),
       click: () => switchPet('tuanzi'),
     },
     {
-      label: petId === 'maodie' ? '✓ 圆头耄耋' : '圆头耄耋',
+      label: petId === 'maodie' ? `✓ ${petLabel('maodie')}` : petLabel('maodie'),
       click: () => switchPet('maodie'),
     },
     { type: 'separator' },
@@ -192,6 +204,8 @@ function buildTrayMenu() {
 
 function switchPet(id) {
   petId = id;
+  tray?.setImage(trayIcon(id));
+  tray?.setToolTip(`桌面宠物 · ${petMeta(id).name}`);
   tray?.setContextMenu(buildTrayMenu());
   ensureWindow();
   applyPetWindowSize(id);
@@ -201,7 +215,7 @@ function switchPet(id) {
 
 function createTray() {
   tray = new Tray(trayIcon());
-  tray.setToolTip('桌面宠物');
+  tray.setToolTip(`桌面宠物 · ${petMeta().name}`);
   tray.setContextMenu(buildTrayMenu());
   tray.on('click', () => {
     ensureWindow();
@@ -222,11 +236,11 @@ function popupPetMenu() {
     { label: '跳跃', click: () => win.webContents.send('pet:action', 'jump') },
     { type: 'separator' },
     {
-      label: petId === 'tuanzi' ? '✓ 团子' : '切换到团子',
+      label: petId === 'tuanzi' ? `✓ ${petLabel('tuanzi')}` : petLabel('tuanzi'),
       click: () => switchPet('tuanzi'),
     },
     {
-      label: petId === 'maodie' ? '✓ 圆头耄耋' : '切换到圆头耄耋',
+      label: petId === 'maodie' ? `✓ ${petLabel('maodie')}` : `${petLabel('maodie')}`,
       click: () => switchPet('maodie'),
     },
     { type: 'separator' },
