@@ -15,6 +15,7 @@
     "build:desktop": "npm run build -w @pet-apps/desktop",
     "check": "npm test && npm run build",
     "desktop": "npm run desktop -w @pet-apps/desktop",
+    "capture:desktop": "npm run build:desktop && electron scripts/capture-desktop-media.cjs",
     "dev:tuanzi": "npm run dev -w @pet-apps/tuanzi",
     "dev:maodie": "npm run dev -w @pet-apps/maodie",
     "build:tuanzi": "npm run build -w @pet-apps/tuanzi",
