@@ -6,6 +6,8 @@
 
 这是一个常驻桌面的互动宠物：可以摸头、喂食、跳跃、拖动位置，也可以从托盘切换团子和圆头耄耋。
 
+[查看最新版本记录](https://github.com/hellowmq/pet-apps/releases/latest) · 当前 Release 记录对应源码版本，仍需按下方命令运行，不是已签名安装包。
+
 ## 30 秒快速体验
 
 ```bash
