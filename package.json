@@ -20,6 +20,8 @@
     "dev:maodie": "npm run dev -w @pet-apps/maodie",
     "build:tuanzi": "npm run build -w @pet-apps/tuanzi",
     "build:maodie": "npm run build -w @pet-apps/maodie",
+    "dev:showcase": "npm run dev -w @pet-apps/showcase",
+    "build:showcase": "npm run build -w @pet-apps/showcase",
     "test": "npm run test -w @pet-apps/core"
   }
 }

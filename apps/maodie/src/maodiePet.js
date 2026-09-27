@@ -78,6 +78,10 @@ export function createMaodiePet() {
   };
 
   const headWorld = new THREE.Vector3();
+  let hissTween = null;
+  let hissCall = null;
+  let feedTimeline = null;
+  let cookie = null;
 
   /** Max |x| for pet center so the sprite stays inside the camera frame. */
   function walkBound() {
@@ -118,13 +122,13 @@ export function createMaodiePet() {
     if (md.busy) return;
     md.busy = true;
     mdSetForm('hiss');
-    gsap.fromTo(mdPlane.position, { x: -0.05 }, {
+    hissTween = gsap.fromTo(mdPlane.position, { x: -0.05 }, {
       x: 0.05, duration: 0.06, yoyo: true, repeat: 9,
       onComplete: () => { mdPlane.position.x = 0; },
     });
     mdBurstAtHead();
     addBond(1);
-    gsap.delayedCall(13 / 13 + 0.15, () => { mdSetForm('walk'); md.busy = false; });
+    hissCall = gsap.delayedCall(13 / 13 + 0.15, () => { mdSetForm('walk'); md.busy = false; hissCall = null; });
   }
 
   function maodieScareJump() {
@@ -139,20 +143,21 @@ export function createMaodiePet() {
   function maodieFeed() {
     if (md.busy || !scene) return;
     md.busy = true;
-    const cookie = new THREE.Mesh(
+    cookie = new THREE.Mesh(
       new THREE.CylinderGeometry(0.22, 0.22, 0.08, 20),
       new THREE.MeshStandardMaterial({ color: '#c98d4b', roughness: 0.8 }),
     );
     cookie.castShadow = true;
     cookie.position.set(md.x + md.dir * 0.9, 5, 0);
     scene.add(cookie);
-    gsap.timeline()
+    feedTimeline = gsap.timeline({ onComplete: () => { feedTimeline = null; } })
       .to(cookie.position, { y: 0.35, duration: 0.45, ease: 'bounce.out' })
       .to(cookie.scale, { x: 0.01, y: 0.01, z: 0.01, duration: 0.25 }, '+=0.35')
       .call(() => {
         scene.remove(cookie);
         cookie.geometry.dispose();
         cookie.material.dispose();
+        cookie = null;
         mdBurstAtHead();
         addBond(2);
         mdSetForm('ride');
@@ -240,6 +245,15 @@ export function createMaodiePet() {
     feed: maodieFeed,
 
     dispose() {
+      hissTween?.kill();
+      hissCall?.kill();
+      feedTimeline?.kill();
+      if (cookie) {
+        scene?.remove(cookie);
+        cookie.geometry.dispose();
+        cookie.material.dispose();
+        cookie = null;
+      }
       gsap.killTweensOf(mdPlane.position);
       scene?.remove(maodieG);
       mdPlane.geometry.dispose();

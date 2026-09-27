@@ -82,6 +82,12 @@ export function createTuanziPet() {
 
   /** @type {gsap.core.Tween[]} */
   const idleTweens = [];
+  let jumpTimeline = null;
+  let feedTimeline = null;
+  let followUpTimeline = null;
+  let blinkCall = null;
+  let earCall = null;
+  let cookie = null;
 
   function happyJump(big = false) {
     if (state.busy) return;
@@ -90,7 +96,7 @@ export function createTuanziPet() {
     burst(headWorld, big ? 22 : 12);
     addBond(big ? 3 : 1);
     const h = big ? 1.6 : 0.9;
-    gsap.timeline({ onComplete: () => { state.busy = false; } })
+    jumpTimeline = gsap.timeline({ onComplete: () => { state.busy = false; jumpTimeline = null; } })
       .to(squash.scale, { x: 1.25, y: 0.72, z: 1.25, duration: 0.12, ease: 'power2.out' })
       .to(squash.scale, { x: 0.85, y: 1.2, z: 0.85, duration: 0.16, ease: 'power2.in' })
       .to(pet.position, { y: h, duration: 0.28, ease: 'power2.out' }, '<')
@@ -102,15 +108,15 @@ export function createTuanziPet() {
   function feed() {
     if (state.busy || !scene) return;
     state.busy = true;
-    const cookie = new THREE.Mesh(
+    cookie = new THREE.Mesh(
       new THREE.CylinderGeometry(0.22, 0.22, 0.08, 20),
       new THREE.MeshStandardMaterial({ color: '#c98d4b', roughness: 0.8 }),
     );
     cookie.castShadow = true;
     cookie.position.set(pet.position.x, 5, pet.position.z + 0.9);
     scene.add(cookie);
-    gsap.timeline({
-      onComplete: () => { state.busy = false; },
+    feedTimeline = gsap.timeline({
+      onComplete: () => { state.busy = false; feedTimeline = null; },
     })
       .to(cookie.position, { y: 0.35, duration: 0.45, ease: 'bounce.out' })
       .to(squash.scale, { x: 1.18, y: 0.8, z: 1.18, duration: 0.2, yoyo: true, repeat: 3 }, '+=0.15')
@@ -119,10 +125,11 @@ export function createTuanziPet() {
         scene.remove(cookie);
         cookie.geometry.dispose();
         cookie.material.dispose();
+        cookie = null;
         headWorld.setFromMatrixPosition(body.matrixWorld);
         burst(headWorld, 18);
         addBond(2);
-        gsap.timeline()
+        followUpTimeline = gsap.timeline({ onComplete: () => { followUpTimeline = null; } })
           .to(pet.position, { y: 0.7, duration: 0.24, ease: 'power2.out' })
           .to(pet.position, { y: 0, duration: 0.28, ease: 'bounce.out' });
       });
@@ -136,14 +143,14 @@ export function createTuanziPet() {
       if (!scene) return;
       gsap.to([eyeL.scale, eyeR.scale], {
         y: 0.08, duration: 0.07, yoyo: true, repeat: 1,
-        onComplete: () => gsap.delayedCall(1.6 + Math.random() * 2.8, blink),
+        onComplete: () => { blinkCall = gsap.delayedCall(1.6 + Math.random() * 2.8, blink); },
       });
     })();
     (function earWiggle() {
       if (!scene) return;
       gsap.to([earL.rotation, earR.rotation], {
         z: (i) => (i === 0 ? -0.25 : 0.25), duration: 0.3, yoyo: true, repeat: 3,
-        onComplete: () => gsap.delayedCall(3 + Math.random() * 4, earWiggle),
+        onComplete: () => { earCall = gsap.delayedCall(3 + Math.random() * 4, earWiggle); },
       });
     })();
   }
@@ -196,6 +203,17 @@ export function createTuanziPet() {
     feed,
 
     dispose() {
+      jumpTimeline?.kill();
+      feedTimeline?.kill();
+      followUpTimeline?.kill();
+      blinkCall?.kill();
+      earCall?.kill();
+      if (cookie) {
+        scene?.remove(cookie);
+        cookie.geometry.dispose();
+        cookie.material.dispose();
+        cookie = null;
+      }
       gsap.killTweensOf(squash.scale);
       gsap.killTweensOf(pet.position);
       gsap.killTweensOf(pet.rotation);

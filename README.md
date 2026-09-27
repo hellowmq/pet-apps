@@ -47,6 +47,7 @@ npm run desktop
 apps/desktop        # Electron 桌宠（正式入口）
 apps/tuanzi         # 浏览器整页调试
 apps/maodie         # 浏览器整页调试
+apps/showcase       # 可独立部署的互动展示页
 packages/pet-core   # createPetRuntime / bond / particles / pageUi
 ```
 
@@ -58,6 +59,15 @@ npm run dev:maodie
 ```
 
 带完整标题、亲密度、底栏按钮，方便拆看，**不是**桌宠形态。
+
+## 互动展示页（本地）
+
+```bash
+npm run dev:showcase
+npm run build:showcase
+```
+
+静态产物在 `apps/showcase/dist/`，可作为独立站点部署。这里展示两只宠物的互动；桌面悬浮、拖动和托盘功能请运行正式桌面入口体验。
 
 ## 文档
 

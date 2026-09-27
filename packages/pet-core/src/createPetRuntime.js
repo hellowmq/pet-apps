@@ -15,6 +15,9 @@ const UI_HOVER_SEL = '.pet-desktop-ui, .pet-page-actions, .pet-page-ui, .pet-pag
  * @param {boolean} [options.transparent]
  * @param {(hovering: boolean) => void} [options.onHoverChange]
  * @param {boolean} [options.petOnPointerDown=true]  false when host handles click/drag
+ * @param {EventTarget} [options.pointerTarget=window]  scope pointer events for embedded hosts
+ * @param {HTMLElement} [options.cursorTarget=document.body]  element whose cursor reflects pet hover
+ * @param {number} [options.cameraDistanceScale=1]  values below 1 bring the camera closer
  */
 export function createPetRuntime(options) {
   const {
@@ -26,6 +29,9 @@ export function createPetRuntime(options) {
     transparent = false,
     onHoverChange,
     petOnPointerDown = true,
+    pointerTarget = window,
+    cursorTarget = document.body,
+    cameraDistanceScale = 1,
   } = options;
 
   if (!container || !pet) {
@@ -57,6 +63,7 @@ export function createPetRuntime(options) {
   const CAM_TARGET = new THREE.Vector3(0, 1, 0);
   const CAM_OFFSET = new THREE.Vector3(0, 1.6, 7.2);
   const CAM_BASE_LEN = CAM_OFFSET.length();
+  const cameraBaseLen = CAM_BASE_LEN * Math.max(0.25, cameraDistanceScale);
 
   scene.add(new THREE.AmbientLight('#fff4e0', 0.9));
   const sun = new THREE.DirectionalLight('#ffffff', 1.6);
@@ -115,7 +122,7 @@ export function createPetRuntime(options) {
     const need =
       (boundX + 0.7) /
       (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
-    const len = Math.max(CAM_BASE_LEN, need);
+    const len = Math.max(cameraBaseLen, need);
     camera.position.copy(CAM_TARGET).addScaledVector(CAM_OFFSET, len / CAM_BASE_LEN);
     camera.lookAt(CAM_TARGET);
     camera.updateProjectionMatrix();
@@ -164,7 +171,7 @@ export function createPetRuntime(options) {
     }
     pet.onPointerMove?.({ pointer, raycaster, hit: planeHit });
     const hoveringPet = pet.hitTest?.(raycaster) ?? false;
-    document.body.style.cursor = hoveringPet || overUi ? 'pointer' : 'default';
+    cursorTarget.style.cursor = hoveringPet || overUi ? 'pointer' : originalCursor;
     reportHover(hoveringPet || overUi);
   }
 
@@ -185,12 +192,13 @@ export function createPetRuntime(options) {
 
   function onPointerLeave() {
     reportHover(false);
-    document.body.style.cursor = 'default';
+    cursorTarget.style.cursor = originalCursor;
   }
 
-  window.addEventListener('pointermove', onPointerMove);
-  window.addEventListener('pointerdown', onPointerDown);
-  window.addEventListener('pointerleave', onPointerLeave);
+  const originalCursor = cursorTarget.style.cursor;
+  pointerTarget.addEventListener('pointermove', onPointerMove);
+  pointerTarget.addEventListener('pointerdown', onPointerDown);
+  pointerTarget.addEventListener('pointerleave', onPointerLeave);
   // Start click-through friendly until first hover
   reportHover(false);
 
@@ -212,10 +220,10 @@ export function createPetRuntime(options) {
     alive = false;
     renderer.setAnimationLoop(null);
     ro.disconnect();
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerdown', onPointerDown);
-    window.removeEventListener('pointerleave', onPointerLeave);
-    document.body.style.cursor = 'default';
+    pointerTarget.removeEventListener('pointermove', onPointerMove);
+    pointerTarget.removeEventListener('pointerdown', onPointerDown);
+    pointerTarget.removeEventListener('pointerleave', onPointerLeave);
+    cursorTarget.style.cursor = originalCursor;
     reportHover(false);
     uiHandle?.unmount?.();
     pet.dispose?.();
