@@ -73,6 +73,10 @@ const MESSAGES = {
   },
 };
 
+const searchParams = new URLSearchParams(window.location.search);
+const embedMode = searchParams.get('embed') === 'maodie';
+document.documentElement.classList.toggle('embed', embedMode);
+
 function readLocale() {
   try {
     return localStorage.getItem('daftken.language') === 'en' ? 'en' : 'zh-CN';
@@ -116,7 +120,7 @@ function applyPageCopy() {
   status.textContent = copy.loading;
 }
 
-let selectedId = 'tuanzi';
+let selectedId = embedMode ? 'maodie' : 'tuanzi';
 let runtime = null;
 let contextLostHandler = null;
 let manuallyStarted = false;
@@ -148,7 +152,7 @@ function startRuntime() {
       container: canvasHost,
       pet: PETS[selectedId].create(),
       boundX: PETS[selectedId].boundX,
-      background: '#fdf6ec',
+      background: embedMode ? '#1a241e' : '#fdf6ec',
       pointerTarget: canvasHost,
       cursorTarget: canvasHost,
       cameraDistanceScale: PETS[selectedId].cameraDistanceScale,
@@ -227,6 +231,9 @@ motionPreference.addEventListener('change', () => {
 window.addEventListener('pagehide', stopRuntime);
 window.addEventListener('pageshow', (event) => {
   if (event.persisted) selectPet(selectedId);
+});
+window.addEventListener('storage', (event) => {
+  if (embedMode && event.key === 'daftken.language') window.location.reload();
 });
 applyPageCopy();
 selectPet(selectedId);

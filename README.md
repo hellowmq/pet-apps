@@ -67,6 +67,8 @@ npm run dev:showcase
 npm run build:showcase
 ```
 
+The showcase also exposes a compact, same-origin homepage widget at `?embed=maodie`.
+
 静态产物在 `apps/showcase/dist/`，可作为独立站点部署。这里展示两只宠物的互动；桌面悬浮、拖动和托盘功能请运行正式桌面入口体验。
 
 ## 文档
