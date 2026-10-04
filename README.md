@@ -1,16 +1,20 @@
 # pet-apps
 
-桌面宠物 monorepo：Electron 悬浮壳 + 可嵌入 `createPetRuntime`。主入口是**系统桌面角上的小宠**，不是浏览器端口。
+让团子和圆头耄耋陪在桌面上，回应摸头、喂食和跳跃。先在浏览器中体验，再按需运行 Electron 桌面版。
 
 ## 它是什么
 
 这是一个常驻桌面的互动宠物：可以摸头、喂食、跳跃、拖动位置，也可以从托盘切换团子和圆头耄耋。
 
-[查看最新版本记录](https://github.com/hellowmq/pet-apps/releases/latest) · 当前 Release 记录对应源码版本，仍需按下方命令运行，不是已签名安装包。
+[在线体验：无需安装](https://tech.wenmq.cn/petapp/) · [查看最新版本记录](https://github.com/hellowmq/pet-apps/releases/latest) · 当前 Release 记录对应源码版本，仍需按下方命令运行，不是已签名安装包。
 
-## 30 秒快速体验
+## 从源码运行桌面版
+
+浏览器 Demo 展示宠物互动；桌面悬浮、拖动和托盘控制需要运行桌面版。先克隆仓库并进入目录：
 
 ```bash
+git clone https://github.com/hellowmq/pet-apps.git
+cd pet-apps
 npm ci
 npm run desktop
 ```
@@ -60,14 +64,16 @@ npm run dev:maodie
 
 带完整标题、亲密度、底栏按钮，方便拆看，**不是**桌宠形态。
 
-## 互动展示页（本地）
+## 互动展示页
+
+[打开在线 Demo](https://tech.wenmq.cn/petapp/)，无需克隆或安装依赖。本地开发与构建：
 
 ```bash
 npm run dev:showcase
 npm run build:showcase
 ```
 
-The showcase also exposes a compact, same-origin homepage widget at `?embed=maodie`.
+展示页还提供可嵌入同源首页的精简组件：`?embed=maodie`。
 
 静态产物在 `apps/showcase/dist/`，可作为独立站点部署。这里展示两只宠物的互动；桌面悬浮、拖动和托盘功能请运行正式桌面入口体验。
 
