@@ -7,7 +7,8 @@ function installPet({ url, pet, locale }) {
     return;
   }
   const source = new URL(url);
-  const channel = Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16)).join('-');
+  const newChannel = () => Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16)).join('-');
+  let channel = newChannel();
   source.searchParams.set('pet', pet);
   source.searchParams.set('lang', locale);
   source.hash = new URLSearchParams({ channel, parent: location.origin }).toString();
@@ -43,11 +44,13 @@ function installPet({ url, pet, locale }) {
   if (source.origin !== location.origin) frame.setAttribute('sandbox', 'allow-scripts allow-same-origin');
   const notice = document.createElement('div');
   notice.className = 'notice'; notice.setAttribute('role', 'status');
-  notice.textContent = en ? 'Your pet is on its way…' : '小伙伴正在赶来…';
   root.append(style, frame, header, notice);
-  (document.body || document.documentElement).append(host);
-  let disposed = false, ready = false, drag = null, grip = null, pending = null, raf = 0;
-  const send = data => frame.contentWindow?.postMessage({ ...data, channel }, source.origin);
+  let disposed = false, ready = false, drag = null, grip = null, pending = null, raf = 0, timeout = 0;
+  // An iframe still loading (or showing a browser error page) has a different
+  // origin. Only send after its authenticated ready message, including on blur.
+  const send = data => {
+    if (ready && !disposed) frame.contentWindow?.postMessage({ ...data, channel }, source.origin);
+  };
   function remove() {
     if (disposed) return;
     disposed = true;
@@ -63,6 +66,7 @@ function installPet({ url, pet, locale }) {
     host.remove();
   }
   function cancel() {
+    cancelAnimationFrame(raf); raf = 0; pending = null;
     drag = null;
     if (grip && move.hasPointerCapture(grip.id)) move.releasePointerCapture(grip.id);
     grip = null;
@@ -79,7 +83,7 @@ function installPet({ url, pet, locale }) {
     } else send(data);
   }
   function receive(event) {
-    if (event.source !== frame.contentWindow || event.origin !== source.origin || event.data?.channel !== channel) return;
+    if (disposed || event.source !== frame.contentWindow || event.origin !== source.origin || event.data?.channel !== channel) return;
     const data = event.data;
     if (data.type === 'ready') { ready = true; notice.hidden = true; clearTimeout(timeout); }
     if (data.type === 'hover') frame.style.pointerEvents = coarsePointer || data.active ? 'auto' : 'none';
@@ -90,13 +94,32 @@ function installPet({ url, pet, locale }) {
     }
     if (data.type === 'drag-end') drag = null;
   }
-  const timeout = setTimeout(() => {
+  function unavailable() {
     if (ready || disposed) return;
-    notice.replaceChildren(document.createTextNode(en ? 'This page may block the pet. ' : '这个网页可能限制了宠物加载。'));
+    notice.replaceChildren(document.createTextNode(en ? 'Your pet could not connect. ' : '暂时未能连接到宠物。'));
+    const retry = document.createElement('button');
+    retry.type = 'button'; retry.textContent = en ? 'Retry' : '重新加载';
+    retry.addEventListener('click', () => load(true));
     const link = document.createElement('a');
     link.href = new URL('./', url).href; link.target = '_blank'; link.rel = 'noopener noreferrer';
-    link.textContent = en ? 'Open PetApp' : '打开 PetApp'; notice.append(link);
-  }, 8000);
+    link.textContent = en ? 'Open PetApp' : '打开 PetApp';
+    notice.append(retry, document.createTextNode(' '), link);
+  }
+  function load(retry = false) {
+    if (disposed) return;
+    ready = false; cancel(); clearTimeout(timeout);
+    frame.style.pointerEvents = coarsePointer ? 'auto' : 'none';
+    if (retry) {
+      // Ignore late messages from the previous document and bypass cached errors.
+      channel = newChannel();
+      source.searchParams.set('_petappRetry', channel);
+      source.hash = new URLSearchParams({ channel, parent: location.origin }).toString();
+    }
+    notice.hidden = false;
+    notice.textContent = en ? 'Your pet is on its way…' : '小伙伴正在赶来…';
+    timeout = setTimeout(unavailable, 15000);
+    frame.src = source.href;
+  }
   const observer = new MutationObserver(() => { if (!host.isConnected) remove(); });
   observer.observe(document.documentElement, { childList: true });
   if (document.body) observer.observe(document.body, { childList: true });
@@ -122,7 +145,10 @@ function installPet({ url, pet, locale }) {
     if (delta) { event.preventDefault(); x += delta[0]; y += delta[1]; position(); }
     if (event.key === 'Escape') cancel();
   });
-  frame.src = source.href;
+  // Set the destination before insertion so no same-origin about:blank iframe
+  // is installed in the host page, and register listeners before navigation.
+  load();
+  (document.body || document.documentElement).append(host);
 }
 
 export function createPetBookmark({ pet = 'maodie', locale = 'zh-CN', url = new URL('companion.html', location.href).href } = {}) {
