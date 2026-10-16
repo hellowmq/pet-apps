@@ -1,0 +1,41 @@
+name: Portable pet browsers
+
+on:
+  push:
+    paths:
+      - 'apps/showcase/**'
+      - 'apps/maodie/src/maodiePet.js'
+      - 'packages/pet-core/**'
+      - 'scripts/test-portable-pet.mjs'
+      - '.github/workflows/portable-pet.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build:showcase
+      - run: node scripts/test-portable-pet.mjs
+        env:
+          PETAPP_TEST_OUTPUT: ${{ runner.temp }}/petapp-portable-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: portable-pet-${{ matrix.os }}
+          path: ${{ runner.temp }}/petapp-portable-results

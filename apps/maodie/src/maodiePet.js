@@ -12,7 +12,7 @@ const BASE = import.meta.env.BASE_URL;
  * 2.5D sprite 圆头耄耋.
  * @returns {import('@pet-apps/core').Pet}
  */
-export function createMaodiePet() {
+export function createMaodiePet({ assetUrls = {} } = {}) {
   /** @type {import('three').Scene | null} */
   let scene = null;
   /** @type {(n?: number) => void} */
@@ -22,7 +22,7 @@ export function createMaodiePet() {
 
   const texLoader = createPetTextureLoader();
   function loadTex(p) {
-    const t = texLoader.load(BASE + p);
+    const t = texLoader.load(assetUrls[p] || BASE + p);
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }

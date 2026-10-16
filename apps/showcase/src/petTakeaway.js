@@ -43,7 +43,7 @@ export function mountPetTakeaway({ canvasHost, still, gesture, hitTest, getDragP
   code.addEventListener('focus', () => code.select());
   details.append(summary, manual, code);
   const note = document.createElement('p'); note.className = 'takeaway-note';
-  note.textContent = en ? 'For ordinary web pages. Some sites restrict loading; browser settings pages are unavailable.' : '适用于普通网页。部分网站会限制加载，浏览器设置等内部页面不支持。';
+  note.textContent = en ? 'The saved bookmark includes the pet and works offline. Some sites restrict images or graphics; browser settings pages are unavailable.' : '书签包含完整宠物，保存后可离线运行。部分网站仍会限制图片或图形显示；浏览器内部页面不支持。';
   dialog.append(close, heading, instructions, alternative, details, note);
   document.body.append(dialog);
   take.addEventListener('click', () => dialog.showModal());
