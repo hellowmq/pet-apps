@@ -47,6 +47,7 @@
   z-index: 10;
 }
 .pet-page-actions button {
+  min-height: 44px;
   font-family: -apple-system, "PingFang SC", sans-serif;
   font-size: 14px;
   font-weight: 600;
@@ -66,4 +67,16 @@
 }
 .pet-page-actions button:active {
   transform: translateY(0) scale(0.96);
+}
+.pet-page-actions button:focus-visible {
+  outline: 3px solid #b8794a;
+  outline-offset: 3px;
+}
+@media (max-width: 390px) {
+  .pet-page-actions { gap: 8px; width: calc(100% - 32px); }
+  .pet-page-actions button { flex: 1; padding-inline: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pet-page-actions button { transition: none; }
+  .pet-page-actions button:hover, .pet-page-actions button:active { transform: none; }
 }

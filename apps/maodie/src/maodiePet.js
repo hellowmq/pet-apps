@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { gsap } from 'gsap';
+import { createPetTextureLoader } from '@pet-apps/core';
 
 /** Fallback when host omits boundX (matches page host). */
 const MD_BOUND_DEFAULT = 3.6;
@@ -19,7 +20,7 @@ export function createMaodiePet() {
   /** @type {(o: THREE.Vector3, n?: number) => void} */
   let burst = () => {};
 
-  const texLoader = new THREE.TextureLoader();
+  const texLoader = createPetTextureLoader();
   function loadTex(p) {
     const t = texLoader.load(BASE + p);
     t.colorSpace = THREE.SRGBColorSpace;
@@ -34,6 +35,8 @@ export function createMaodiePet() {
     spider: loadSeq('spider', 14),
     ride: loadSeq('ride', 4),
   };
+  const ready = texLoader.ready();
+  ready.catch(() => {});
   const MD_FORM = {
     calm: [1.0, 1.2, 0],
     walk: [139 / 84, 1.0, 12],
@@ -167,6 +170,7 @@ export function createMaodiePet() {
 
   return {
     id: 'maodie',
+    ready,
     title: '圆头耄耋 Maodie',
     hint: '鼠标靠近它会加速逃跑 · 点它就对你哈气',
 
@@ -245,6 +249,7 @@ export function createMaodiePet() {
     feed: maodieFeed,
 
     dispose() {
+      texLoader.dispose();
       hissTween?.kill();
       hissCall?.kill();
       feedTimeline?.kill();

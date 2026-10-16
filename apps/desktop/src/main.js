@@ -1,20 +1,40 @@
-import { createPetRuntime } from '@pet-apps/core';
+import { createPetRuntime, createPointerGesture } from '@pet-apps/core';
 import { createPetById, runtimeOptionsFor } from './pets.js';
 
 const container = document.querySelector('#app');
 const api = window.desktopPet;
-const DRAG_THRESHOLD = 5;
 
 /** @type {ReturnType<typeof createPetRuntime> | null} */
 let runtime = null;
 /** @type {'tuanzi' | 'maodie'} */
 let currentId = 'tuanzi';
 
-/** @type {{ x: number, y: number, screenX: number, screenY: number } | null} */
-let press = null;
-let dragging = false;
+const gesture = createPointerGesture({
+  target: window,
+  hitTest: (event) => runtime?.hitTestAtEvent(event) ?? false,
+  // Window-local coordinates change as the window moves; screen coordinates do not.
+  getPoint: (event) => ({ x: event.screenX, y: event.screenY }),
+  onPress() {
+    document.body.dataset.gesture = 'pressed';
+    api?.setIgnoreMouse?.(false);
+  },
+  onDragStart(event) {
+    document.body.dataset.gesture = 'dragging';
+    api?.dragStart?.(event.screenX, event.screenY);
+  },
+  onDragMove: (event) => api?.dragMove?.(event.screenX, event.screenY),
+  onTap: () => runtime?.pet.pet(),
+  onEnd({ event, cancelled, dragged }) {
+    delete document.body.dataset.gesture;
+    if (dragged) api?.dragEnd?.();
+    if (cancelled) runtime?.resetHover();
+    const hovering = !cancelled && event && runtime?.hitTestAtEvent(event);
+    api?.setIgnoreMouse?.(!hovering);
+  },
+});
 
 function mountPet(id) {
+  gesture.cancel();
   runtime?.dispose();
   currentId = id;
   const pet = createPetById(id);
@@ -29,62 +49,29 @@ function mountPet(id) {
     boundX: opts.boundX,
     petOnPointerDown: false,
     onHoverChange(hovering) {
-      if (dragging) return;
+      if (gesture.isActive()) return;
       api?.setIgnoreMouse?.(!hovering);
     },
   });
   api?.setIgnoreMouse?.(true);
 }
 
-function onPointerDown(e) {
-  if (e.button !== 0 || !runtime) return;
-  if (!runtime.hitTestAtEvent(e)) return;
-  press = {
-    x: e.clientX,
-    y: e.clientY,
-    screenX: e.screenX,
-    screenY: e.screenY,
-  };
-  dragging = false;
-  api?.setIgnoreMouse?.(false);
-}
-
-function onPointerMove(e) {
-  if (!press || !runtime) return;
-  const dx = e.clientX - press.x;
-  const dy = e.clientY - press.y;
-  if (!dragging && Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
-    dragging = true;
-    api?.dragStart?.(press.screenX, press.screenY);
-  }
-  if (dragging) {
-    api?.dragMove?.(e.screenX, e.screenY);
-  }
-}
-
-function onPointerUp(e) {
-  if (!press || !runtime) return;
-  if (dragging) {
-    api?.dragEnd?.();
-  } else if (e.button === 0 && runtime.hitTestAtEvent(e)) {
-    runtime.pet.pet();
-  }
-  press = null;
-  dragging = false;
-}
-
 function onContextMenu(e) {
   e.preventDefault();
   if (!runtime) return;
   if (!runtime.hitTestAtEvent(e)) return;
+  gesture.cancel();
   api?.openContextMenu?.();
 }
 
-window.addEventListener('pointerdown', onPointerDown);
-window.addEventListener('pointermove', onPointerMove);
-window.addEventListener('pointerup', onPointerUp);
-window.addEventListener('pointercancel', onPointerUp);
 window.addEventListener('contextmenu', onContextMenu);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) gesture.cancel();
+});
+window.addEventListener('pagehide', () => {
+  gesture.dispose();
+  runtime?.dispose();
+});
 
 mountPet(api?.getPet?.() || 'tuanzi');
 
@@ -101,6 +88,7 @@ api?.onAction?.((action) => {
 });
 
 api?.onMenuClosed?.(() => {
-  // Re-evaluate hover on next move; default to passthrough
+  // Reset the cached hover so the next move over the same pet re-enables input.
+  runtime?.resetHover();
   api?.setIgnoreMouse?.(true);
 });

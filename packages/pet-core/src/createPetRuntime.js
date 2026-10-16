@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createBond } from './bond.js';
 import { createParticles } from './particles.js';
+import { capturePetDragImage } from './capturePetDragImage.js';
 
 const UI_HOVER_SEL = '.pet-desktop-ui, .pet-page-actions, .pet-page-ui, .pet-page-hearts';
 
@@ -93,7 +94,9 @@ export function createPetRuntime(options) {
     addBond: (n) => bond.addBond(n),
     burst: (origin, count) => particles.burst(origin, count),
   };
+  const existingObjects = new Set(scene.children);
   pet.mount(ctx);
+  const petRoots = new Set(scene.children.filter(object => !existingObjects.has(object)));
 
   const uiHost = container.parentElement || container;
   let uiHandle = null;
@@ -176,7 +179,7 @@ export function createPetRuntime(options) {
   }
 
   function onPointerDown(e) {
-    if (!petOnPointerDown) return;
+    if (!petOnPointerDown || e.button !== 0 || e.isPrimary === false) return;
     if (e.target.closest?.('.pet-page-actions, .pet-desktop-ui')) return;
     if (!setPointerFromEvent(e)) return;
     raycaster.setFromCamera(pointer, camera);
@@ -244,5 +247,7 @@ export function createPetRuntime(options) {
     scene,
     pet,
     hitTestAtEvent,
+    resetHover: onPointerLeave,
+    captureDragImage: (point) => alive ? capturePetDragImage({ renderer, scene, camera, roots: petRoots, point }) : null,
   };
 }

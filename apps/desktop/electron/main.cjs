@@ -20,6 +20,7 @@ let tray = null;
 let petId = 'tuanzi';
 /** @type {{ x: number, y: number } | null} */
 let dragOffset = null;
+let menuOpen = false;
 
 const PET_META = {
   tuanzi: { emoji: '🍡', name: '团子' },
@@ -159,11 +160,16 @@ function createWindow() {
   win.once('ready-to-show', () => {
     const safe = clampToDisplays(...win.getPosition());
     win.setPosition(safe.x, safe.y);
-    win.show();
-    win.focus();
+    win.showInactive();
   });
 
   win.on('moved', () => savePos());
+  win.on('show', () => refreshTrayMenu(true));
+  win.on('hide', () => {
+    dragOffset = null;
+    win.setIgnoreMouseEvents(true, { forward: true });
+    refreshTrayMenu(false);
+  });
   win.on('closed', () => {
     win = null;
     dragOffset = null;
@@ -175,81 +181,81 @@ function ensureWindow() {
   return win;
 }
 
-function buildTrayMenu() {
+function buildPetMenu(visible = !!win?.isVisible()) {
   return Menu.buildFromTemplate([
-    {
-      label: petId === 'tuanzi' ? `✓ ${petLabel('tuanzi')}` : petLabel('tuanzi'),
-      click: () => switchPet('tuanzi'),
-    },
-    {
-      label: petId === 'maodie' ? `✓ ${petLabel('maodie')}` : petLabel('maodie'),
-      click: () => switchPet('maodie'),
-    },
+    { label: '摸头', enabled: visible, click: () => win?.webContents.send('pet:action', 'pet') },
+    { label: '喂食', enabled: visible, click: () => win?.webContents.send('pet:action', 'feed') },
+    { label: '跳跃', enabled: visible, click: () => win?.webContents.send('pet:action', 'jump') },
+    { type: 'separator' },
+    ...['tuanzi', 'maodie'].map((id) => ({
+      label: petLabel(id), type: 'radio', checked: petId === id,
+      click: () => switchPet(id),
+    })),
     { type: 'separator' },
     {
       label: '显示',
+      enabled: !visible,
       click: () => {
-        ensureWindow().show();
-        win.focus();
+        ensureWindow().showInactive();
+        refreshTrayMenu(true);
       },
     },
     {
       label: '隐藏',
-      click: () => win?.hide(),
+      enabled: visible,
+      click: () => {
+        win?.hide();
+        refreshTrayMenu(false);
+      },
     },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() },
   ]);
 }
 
+function refreshTrayMenu(visible) {
+  tray?.setContextMenu(buildPetMenu(visible));
+}
+
 function switchPet(id) {
+  if (id !== 'tuanzi' && id !== 'maodie') return;
+  if (id === petId) {
+    ensureWindow().showInactive();
+    return;
+  }
   petId = id;
   tray?.setImage(trayIcon(id));
   tray?.setToolTip(`桌面宠物 · ${petMeta(id).name}`);
-  tray?.setContextMenu(buildTrayMenu());
   ensureWindow();
   applyPetWindowSize(id);
-  win.show();
+  win.showInactive();
+  refreshTrayMenu();
   win.webContents.send('pet:switch', id);
 }
 
 function createTray() {
   tray = new Tray(trayIcon());
   tray.setToolTip(`桌面宠物 · ${petMeta().name}`);
-  tray.setContextMenu(buildTrayMenu());
+  refreshTrayMenu();
   tray.on('click', () => {
     ensureWindow();
     if (win.isVisible()) win.hide();
     else {
-      win.show();
-      win.focus();
+      win.showInactive();
     }
+    refreshTrayMenu();
   });
 }
 
 function popupPetMenu() {
-  if (!win) return;
+  if (!win || menuOpen) return;
+  menuOpen = true;
   win.setIgnoreMouseEvents(false);
-  const menu = Menu.buildFromTemplate([
-    { label: '摸头', click: () => win.webContents.send('pet:action', 'pet') },
-    { label: '喂食', click: () => win.webContents.send('pet:action', 'feed') },
-    { label: '跳跃', click: () => win.webContents.send('pet:action', 'jump') },
-    { type: 'separator' },
-    {
-      label: petId === 'tuanzi' ? `✓ ${petLabel('tuanzi')}` : petLabel('tuanzi'),
-      click: () => switchPet('tuanzi'),
-    },
-    {
-      label: petId === 'maodie' ? `✓ ${petLabel('maodie')}` : `${petLabel('maodie')}`,
-      click: () => switchPet('maodie'),
-    },
-    { type: 'separator' },
-    { label: '隐藏', click: () => win.hide() },
-    { label: '退出', click: () => app.quit() },
-  ]);
+  const menu = buildPetMenu();
   menu.popup({
     window: win,
     callback: () => {
+      menuOpen = false;
       win?.setIgnoreMouseEvents(true, { forward: true });
       win?.webContents.send('pet:menu-closed');
     },
@@ -257,7 +263,7 @@ function popupPetMenu() {
 }
 
 ipcMain.on('pet:set-ignore-mouse', (_e, ignore) => {
-  if (!win || dragOffset) return;
+  if (!win || dragOffset || menuOpen) return;
   if (ignore) win.setIgnoreMouseEvents(true, { forward: true });
   else win.setIgnoreMouseEvents(false);
 });
@@ -268,6 +274,7 @@ ipcMain.on('pet:get-id', (e) => {
 
 ipcMain.on('pet:set-window-size', (_e, id) => {
   if (id === 'tuanzi' || id === 'maodie') {
+    if (petId === id) return;
     petId = id;
     applyPetWindowSize(id);
   }
@@ -294,9 +301,11 @@ ipcMain.on('pet:drag-move', (_e, { screenX, screenY }) => {
 
 ipcMain.on('pet:drag-end', () => {
   dragOffset = null;
+  if (win) {
+    const safe = clampToDisplays(...win.getPosition());
+    win.setPosition(safe.x, safe.y);
+  }
   savePos();
-  win?.setIgnoreMouseEvents(true, { forward: true });
-  win?.webContents.send('pet:menu-closed');
 });
 
 app.whenReady().then(() => {

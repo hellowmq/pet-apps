@@ -1,9 +1,10 @@
-import { createPetRuntime } from '@pet-apps/core';
+import { createPetRuntime, createPointerGesture } from '@pet-apps/core';
 import { createTuanziPet } from '../../tuanzi/src/tuanziPet.js';
 import { createMaodiePet } from '../../maodie/src/maodiePet.js';
 import tuanziStill from '../../../docs/media/tuanzi-canvas.png?url';
 import maodieStill from '../../../docs/media/maodie-canvas.png?url';
 import './style.css';
+import { mountPetTakeaway } from './petTakeaway.js';
 
 const PETS = {
   tuanzi: {
@@ -33,10 +34,11 @@ const MESSAGES = {
     loading: '加载中…',
     preview: (pet) => `${pet}的静态预览`,
     playing: (pet) => `正在和${pet}玩。点它也可以摸摸头。`,
-    acted: {
-      pet: (pet) => `摸了摸${pet}的头。`,
-      feed: (pet) => `给${pet}喂了点心。`,
-      jump: (pet) => `${pet}跳起来了。`,
+    hints: { tuanzi: '点一下摸头，也可以用下方按钮互动。', maodie: '点它会哈气；忙碌时可能忽略新的互动。' },
+    requested: {
+      pet: (pet) => `试着和${pet}打个招呼。`,
+      feed: (pet) => `给${pet}送上点心，看看它的回应。`,
+      jump: (pet) => `邀请${pet}跳一下，看看它的回应。`,
     },
     reducedMotion: '已按你的系统设置减少动态效果。需要时可以主动开启互动。',
     unavailable: '互动暂时不可用，先看看静态预览。',
@@ -60,10 +62,11 @@ const MESSAGES = {
     loading: 'Loading…',
     preview: (pet) => `Still preview of ${pet}`,
     playing: (pet) => `Playing with ${pet}. Tap or click the pet to say hello.`,
-    acted: {
-      pet: (pet) => `Petted ${pet}.`,
-      feed: (pet) => `Fed ${pet} a snack.`,
-      jump: (pet) => `${pet} jumped.`,
+    hints: { tuanzi: 'Tap to pet, or try the buttons below.', maodie: 'Tap for a hiss. New interactions may be ignored while busy.' },
+    requested: {
+      pet: (pet) => `Saying hello to ${pet}.`,
+      feed: (pet) => `Offering ${pet} a snack. Watch for a response.`,
+      jump: (pet) => `Inviting ${pet} to jump. Watch for a response.`,
     },
     reducedMotion: 'Motion is reduced to match your system setting. Start the demo when you are ready.',
     unavailable: 'The interactive demo is unavailable. You can still see the preview.',
@@ -97,6 +100,8 @@ const messageText = document.querySelector('#stage-message-text');
 const startButton = document.querySelector('#start-demo');
 const actionButtons = document.querySelectorAll('[data-action]');
 const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+const petSwitch = document.querySelector('.pet-switch');
+const switchIndicator = document.querySelector('.switch-indicator');
 
 function applyPageCopy() {
   document.documentElement.lang = locale;
@@ -122,8 +127,42 @@ function applyPageCopy() {
 
 let selectedId = embedMode ? 'maodie' : 'tuanzi';
 let runtime = null;
+let pendingPet = null;
+let mountVersion = 0;
 let contextLostHandler = null;
 let manuallyStarted = false;
+const gesture = createPointerGesture({
+  target: canvasHost,
+  hitTest: (event) => runtime?.hitTestAtEvent(event) ?? false,
+  threshold: 8,
+  onTap: () => requestAction('pet'),
+});
+if (embedMode) mountPetTakeaway({ canvasHost, still, gesture, locale,
+  name: copy.pets.maodie.name, status, hitTest: event => runtime?.hitTestAtEvent(event) ?? false,
+  getDragPreview: point => runtime?.captureDragImage(point) });
+
+function moveIndicator() {
+  const selected = petSwitch.querySelector('[aria-pressed="true"]');
+  switchIndicator.style.width = `${selected.offsetWidth}px`;
+  switchIndicator.style.transform = `translateX(${selected.offsetLeft}px)`;
+}
+const switchResize = new ResizeObserver(moveIndicator);
+switchResize.observe(petSwitch);
+
+function requestAction(action) {
+  if (!runtime) return;
+  runtime.pet[action]?.();
+  // A pet can ignore a request while busy. Feedback describes input, not success.
+  status.replaceChildren(document.createTextNode(copy.requested[action](copy.pets[selectedId].name)));
+  if (motionPreference.matches) return;
+  const button = document.querySelector(`[data-action="${action}"]`);
+  button.getAnimations().forEach((animation) => animation.cancel());
+  button.animate([
+    { transform: 'scale(.96)' }, { transform: 'scale(1)' },
+  ], { duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  status.getAnimations().forEach((animation) => animation.cancel());
+  status.animate([{ opacity: .55 }, { opacity: 1 }], { duration: 180 });
+}
 
 function showStill(text, canStart = false) {
   stopRuntime();
@@ -136,6 +175,12 @@ function showStill(text, canStart = false) {
 }
 
 function stopRuntime() {
+  mountVersion++;
+  pendingPet?.dispose();
+  pendingPet = null;
+  gesture.cancel();
+  status.getAnimations().forEach((animation) => animation.cancel());
+  actionButtons.forEach((button) => button.getAnimations().forEach((animation) => animation.cancel()));
   if (runtime?.canvas && contextLostHandler) {
     runtime.canvas.removeEventListener('webglcontextlost', contextLostHandler);
   }
@@ -145,18 +190,30 @@ function stopRuntime() {
   canvasHost.replaceChildren();
 }
 
-function startRuntime() {
-  if (runtime) return;
+async function startRuntime() {
+  if (runtime || pendingPet) return;
+  const version = ++mountVersion;
   try {
+    const pet = PETS[selectedId].create();
+    pendingPet = pet;
+    actionButtons.forEach(button => { button.disabled = true; });
+    still.hidden = false;
+    message.hidden = true;
+    startButton.hidden = true;
+    status.textContent = copy.loading;
+    await pet.ready;
+    if (version !== mountVersion) return;
     runtime = createPetRuntime({
       container: canvasHost,
-      pet: PETS[selectedId].create(),
+      pet,
       boundX: PETS[selectedId].boundX,
       background: embedMode ? '#1a241e' : '#fdf6ec',
       pointerTarget: canvasHost,
       cursorTarget: canvasHost,
+      petOnPointerDown: false,
       cameraDistanceScale: PETS[selectedId].cameraDistanceScale,
     });
+    pendingPet = null;
     contextLostHandler = (event) => {
       event.preventDefault();
       showStill(copy.unavailable);
@@ -165,15 +222,17 @@ function startRuntime() {
     actionButtons.forEach((button) => { button.disabled = false; });
     still.hidden = true;
     message.hidden = true;
-    status.textContent = copy.playing(copy.pets[selectedId].name);
+    status.textContent = selectedId === 'maodie' ? copy.hints.maodie : copy.playing(copy.pets[selectedId].name);
   } catch (error) {
+    if (version !== mountVersion) return;
     console.warn('PetApp demo could not start:', error);
-    showStill(copy.unavailable);
+    showStill(copy.unavailable, true);
   }
 }
 
-function selectPet(id) {
+function selectPet(id, force = false) {
   if (!PETS[id]) return;
+  if (!force && id === selectedId) return;
   stopRuntime();
   selectedId = id;
   const pet = PETS[id];
@@ -186,9 +245,11 @@ function selectPet(id) {
   }
   still.src = pet.still;
   still.alt = copy.preview(petCopy.name);
+  document.querySelector('#pet-hint').textContent = copy.hints[id];
   document.querySelectorAll('[data-pet]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.pet === id));
   });
+  moveIndicator();
   if (motionPreference.matches && !manuallyStarted) {
     showStill(copy.reducedMotion, true);
   } else {
@@ -208,9 +269,7 @@ actionButtons.forEach((button) => {
       }
       return;
     }
-    const action = button.dataset.action;
-    runtime.pet[action]?.();
-    status.textContent = copy.acted[action](copy.pets[selectedId].name);
+    requestAction(button.dataset.action);
   });
 });
 
@@ -228,12 +287,18 @@ motionPreference.addEventListener('change', () => {
   }
 });
 
-window.addEventListener('pagehide', stopRuntime);
+window.addEventListener('pagehide', () => {
+  stopRuntime();
+  switchResize.disconnect();
+});
 window.addEventListener('pageshow', (event) => {
-  if (event.persisted) selectPet(selectedId);
+  if (event.persisted) {
+    switchResize.observe(petSwitch);
+    selectPet(selectedId, true);
+  }
 });
 window.addEventListener('storage', (event) => {
   if (embedMode && event.key === 'daftken.language') window.location.reload();
 });
 applyPageCopy();
-selectPet(selectedId);
+selectPet(selectedId, true);
