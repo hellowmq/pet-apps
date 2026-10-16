@@ -9,6 +9,12 @@ on:
       - 'scripts/test-portable-pet.mjs'
       - '.github/workflows/portable-pet.yml'
   workflow_dispatch:
+    inputs:
+      published_url:
+        description: 'Optional published PetApp entry URL for release readback'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -18,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: ${{ inputs.published_url != '' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest","windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
@@ -29,6 +35,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.62.1
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/AppData/Local/ms-playwright
+          key: portable-pet-${{ runner.os }}-playwright-1.62.1
       - run: npx playwright install --with-deps chromium
         if: runner.os == 'Linux'
       - run: npx playwright install chromium
@@ -37,6 +49,7 @@ jobs:
       - run: node scripts/test-portable-pet.mjs
         env:
           PETAPP_TEST_OUTPUT: ${{ runner.temp }}/petapp-portable-results
+          PETAPP_PUBLISHED_URL: ${{ inputs.published_url }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -25,7 +25,7 @@ export function install({ pet = 'maodie', locale = 'zh-CN' } = {}) {
   const root = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = ':host{color-scheme:light}*{box-sizing:border-box}header{position:absolute;top:0;right:8px;display:flex;gap:4px;pointer-events:auto}button{font:11px system-ui;color:#5b4a3a;background:#fffaf2;border:1px solid #dfcbb5;border-radius:999px;min-height:32px;padding:6px 10px;cursor:pointer}header button{font-size:13px;min-width:36px}button:disabled{opacity:.5;cursor:default}button:focus-visible{outline:3px solid #db8b58;outline-offset:2px}.move{cursor:grab;touch-action:none}.stage{position:absolute;top:34px;left:0;width:260px;height:208px;touch-action:none}.actions{position:absolute;top:242px;left:0;width:260px;display:flex;justify-content:center;gap:6px;pointer-events:auto}.status{position:absolute;top:274px;left:12px;right:12px;font:10px/1.3 system-ui;color:#5b4a3a;text-align:center;background:rgba(255,250,242,.9);border-radius:6px}.notice{position:absolute;top:72px;left:14px;right:14px;font:12px/1.6 system-ui;color:#5b4a3a;background:#fffaf2;border:1px solid #dfcbb5;border-radius:14px;padding:14px;pointer-events:auto}.notice[hidden]{display:none}';
-  const header = document.createElement('header');
+  const header = document.createElement('header'); header.style.pointerEvents = 'auto';
   const move = document.createElement('button');
   move.className = 'move'; move.textContent = '⠿'; move.setAttribute('aria-label', en ? 'Move pet. Arrow keys also work.' : '移动宠物，也可用方向键');
   const close = document.createElement('button');
@@ -35,6 +35,8 @@ export function install({ pet = 'maodie', locale = 'zh-CN' } = {}) {
   const actions = document.createElement('div'); actions.className = 'actions';
   const status = document.createElement('div'); status.className = 'status'; status.setAttribute('role', 'status');
   const notice = document.createElement('div'); notice.className = 'notice'; notice.setAttribute('role', 'status');
+  // Keep a readable, dismissible error even when a host rejects our stylesheet.
+  for (const [key, value] of Object.entries({ position: 'absolute', top: '72px', left: '14px', right: '14px', color: '#5b4a3a', background: '#fffaf2', padding: '14px', 'border-radius': '14px', 'pointer-events': 'auto', font: '12px/1.6 system-ui' })) notice.style.setProperty(key, value);
   root.append(style, stage, header, actions, status, notice);
   (document.body || document.documentElement).append(host);
 
@@ -91,6 +93,7 @@ export function install({ pet = 'maodie', locale = 'zh-CN' } = {}) {
   async function run() {
     if (disposed) return;
     stop(); const attempt = version;
+    if (!stage.clientWidth || !stage.clientHeight) { fallback(en ? 'This page blocks the pet display styles.' : '此页面的安全策略禁止了桌宠显示样式。'); return; }
     host.dataset.state = 'loading'; notice.hidden = false;
     notice.textContent = en ? 'Loading the saved pet…' : '正在加载已保存的宠物…';
     deadline = setTimeout(() => { if (!disposed && version === attempt) fallback(en ? 'The pet could not start on this page.' : '宠物未能在此页面启动，请重试。'); }, 10000);
@@ -148,6 +151,7 @@ export function install({ pet = 'maodie', locale = 'zh-CN' } = {}) {
   });
   document.addEventListener('securitypolicyviolation', policy);
   window.addEventListener('resize', position); window.addEventListener('pagehide', remove); window.addEventListener('blur', cancel);
-  if (motion.matches) fallback(en ? 'Motion is reduced. Start when ready.' : '已减少动态效果，需要时开启互动。', 'paused');
+  if (!stage.clientWidth || !stage.clientHeight) fallback(en ? 'This page blocks the pet display styles.' : '此页面的安全策略禁止了桌宠显示样式。');
+  else if (motion.matches) fallback(en ? 'Motion is reduced. Start when ready.' : '已减少动态效果，需要时开启互动。', 'paused');
   else run();
 }

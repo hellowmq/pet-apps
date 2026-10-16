@@ -17,6 +17,7 @@ const server = createServer(async (req, res) => {
   if (pathname.startsWith('/fixture/')) {
     let policy = strictPolicy;
     if (pathname.endsWith('/images-blocked')) policy = policy.replace("img-src 'self' data:", "img-src 'none'");
+    if (pathname.endsWith('/styles-blocked')) policy = policy.replace("style-src 'self' 'unsafe-inline'", "style-src 'none'");
     res.writeHead(200, { 'Content-Type': 'text/html', 'Content-Security-Policy': policy });
     res.end('<!doctype html><html><head><title>Strict host policy</title><style>body{background:#15191d;color:white;font:18px system-ui;padding:32px}button{padding:8px}#under{position:fixed;right:20px;bottom:20px;width:260px;height:300px}</style><script src="/fixture.js" defer></script></head><body><h1>Strict host policy</h1><p>No external frames, scripts or connections allowed.</p><label>Host input <input id="host-input"></label><button id="under">Host page remains clickable</button></body></html>'); return;
   }
@@ -89,7 +90,10 @@ async function fixture(name, task, options = {}) {
 
 try {
   const sourcePage = await browser.newPage();
-  await sourcePage.goto(`${origin}/?embed=maodie`);
+  const publishedUrl = process.env.PETAPP_PUBLISHED_URL;
+  if (publishedUrl) assert.ok(publishedUrl.startsWith('https://tech.wenmq.cn/petapp/'));
+  report.source = publishedUrl || 'local-production-build';
+  await sourcePage.goto(publishedUrl || `${origin}/?embed=maodie`);
   await sourcePage.locator('#pet-takeaway').waitFor();
   bookmark = await sourcePage.locator('#pet-takeaway').getAttribute('href');
   assert.ok(bookmark.startsWith('javascript:'));
@@ -153,6 +157,15 @@ try {
     assert.match(await pets(page).locator('.notice').innerText(), /安全策略/);
     await page.screenshot({ path: resolve(output, 'images-blocked.png') });
     await pets(page).getByRole('button', { name: '关闭宠物', exact: true }).click();
+  });
+  await fixture('styles-blocked', async page => {
+    await execute(page);
+    await page.waitForFunction(() => document.querySelector('[data-petapp-companion]')?.dataset.state === 'error');
+    assert.match(await pets(page).locator('.notice').innerText(), /显示样式/);
+    assert.ok(await pets(page).locator('.notice').isVisible());
+    await page.screenshot({ path: resolve(output, 'styles-blocked.png') });
+    await pets(page).getByRole('button', { name: '关闭宠物', exact: true }).click();
+    assert.equal(await pets(page).count(), 0);
   });
   await fixture('reduced-motion', async page => {
     await execute(page);
