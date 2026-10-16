@@ -57,6 +57,21 @@ async function pixels(page) {
     resolve(visible);
   })));
 }
+async function petPoint(page) {
+  return page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => {
+    const c = document.querySelector('[data-petapp-companion]').shadowRoot.querySelector('canvas');
+    const gl = c.getContext('webgl2'), data = new Uint8Array(c.width * c.height * 4);
+    gl.readPixels(0, 0, c.width, c.height, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    let minX = c.width, minY = c.height, maxX = 0, maxY = 0;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+      if (data[(y * c.width + x) * 4 + 3] > 128) {
+        minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      }
+    }
+    const r = c.getBoundingClientRect();
+    resolve({ x: r.left + (minX + maxX) / 2 / c.width * r.width, y: r.top + (1 - (minY + maxY) / 2 / c.height) * r.height });
+  })));
+}
 async function fixture(name, task, options = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...options });
   const page = await context.newPage();
@@ -115,6 +130,15 @@ try {
     const before = await pets(page).evaluate(e => parseFloat(e.style.left));
     await pets(page).getByRole('button', { name: '移动宠物，也可用方向键', exact: true }).press('ArrowLeft');
     assert.equal(await pets(page).evaluate(e => parseFloat(e.style.left)), before - 16);
+    await page.waitForTimeout(1400); // Let the authored hiss/particles finish before locating the moving body.
+    const point = await petPoint(page);
+    const beforeDrag = await pets(page).evaluate(e => parseFloat(e.style.left));
+    await page.mouse.move(point.x, point.y); await page.mouse.down();
+    await page.mouse.move(point.x - 20, point.y, { steps: 4 }); await page.mouse.up();
+    assert.ok(await pets(page).evaluate(e => parseFloat(e.style.left)) < beforeDrag - 8, 'Pet did not drag');
+    const bounds = await pets(page).boundingBox();
+    await page.mouse.click(bounds.x + 40, bounds.y + 45);
+    assert.equal(await page.locator('#under').getAttribute('data-clicked'), 'yes', 'Transparent area intercepted host click after drag');
     await page.locator('#host-input').fill('Host input still works');
     assert.equal(await page.locator('#host-input').inputValue(), 'Host input still works');
     await page.screenshot({ path: resolve(output, 'strict-and-offline.png') });

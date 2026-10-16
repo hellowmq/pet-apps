@@ -30,6 +30,9 @@ jobs:
       - run: npm ci
       - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.62.1
       - run: npx playwright install --with-deps chromium
+        if: runner.os == 'Linux'
+      - run: npx playwright install chromium
+        if: runner.os == 'Windows'
       - run: npm run build:showcase
       - run: node scripts/test-portable-pet.mjs
         env:

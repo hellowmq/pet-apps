@@ -58,7 +58,7 @@ export function install({ pet = 'maodie', locale = 'zh-CN' } = {}) {
       if (!drag) return;
       x = drag.x + event.screenX - drag.px; y = drag.y + event.screenY - drag.py; position();
     },
-    onEnd: () => { drag = null; },
+    onEnd: () => { drag = null; runtime?.resetHover(); stage.style.pointerEvents = coarse ? 'auto' : 'none'; },
   });
   function action(id) {
     if (!runtime || disposed) return;
@@ -68,7 +68,7 @@ export function install({ pet = 'maodie', locale = 'zh-CN' } = {}) {
   function cancel() {
     gesture.cancel(); drag = null;
     if (grip && move.hasPointerCapture(grip.id)) move.releasePointerCapture(grip.id);
-    grip = null; runtime?.resetHover();
+    grip = null; runtime?.resetHover(); stage.style.pointerEvents = coarse ? 'auto' : 'none';
   }
   function stop() {
     version++; clearTimeout(deadline); cancel();
